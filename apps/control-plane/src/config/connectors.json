@@ -1,0 +1,23 @@
+[
+  {
+    "source": "stocks",
+    "adapter": "static_json",
+    "options": {
+      "file_path": "data/stocks.json"
+    }
+  },
+  {
+    "source": "real_estate",
+    "adapter": "static_json",
+    "options": {
+      "file_path": "data/real_estate.json"
+    }
+  },
+  {
+    "source": "grants",
+    "adapter": "static_json",
+    "options": {
+      "file_path": "data/grants.json"
+    }
+  }
+]

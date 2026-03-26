@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpportunityOS Dashboard</title>
+  <style>
+    :root {
+      --bg:#f6f7fb;
+      --card:#fff;
+      --line:#e5e7eb;
+      --text:#111827;
+      --muted:#6b7280;
+      --brand:#0f172a;
+      --pill:#f3f4f6;
+      --new:#dbeafe;
+      --short:#fef9c3;
+      --prog:#f3e8ff;
+      --review:#fae8ff;
+      --sub:#e0f2fe;
+      --closed:#e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: "SF Pro Display", "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color:var(--text); background:var(--bg); font-size:16px; line-height:1.45; }
+    .layout { display:grid; grid-template-columns:260px 1fr; min-height:100vh; }
+    .sidebar { background:#fff; color:var(--text); padding:20px; border-right:1px solid var(--line); }
+    .nav-btn { width:100%; margin:6px 0; padding:12px; border:1px solid transparent; background:#f8fafc; color:var(--text); text-align:left; border-radius:10px; font-weight:600; }
+    .nav-btn.active { background:#e8f1ff; color:#2563eb; border-color:#e8f1ff; }
+    .main { padding:24px; }
+    .topbar { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; margin-bottom:16px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .grid2 { display:grid; gap:12px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .kpi { border:1px solid var(--line); border-radius:8px; padding:10px; }
+    .hidden { display:none; }
+    .muted { color:var(--muted); }
+    input, select, button, textarea { padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:#fff; font-size:14px; }
+    button { cursor:pointer; font-weight:600; }
+    .btn { border-radius:12px; padding:10px 16px; }
+    .btn-dark { background:#0b0b15; color:#fff; border:1px solid #0b0b15; }
+    .btn-ghost { background:#fff; color:#111827; border:1px solid var(--line); }
+    table { width:100%; border-collapse:collapse; table-layout:fixed; }
+    th, td { word-break: break-word; overflow-wrap:anywhere; }
+    .sources-table th:nth-child(1), .sources-table td:nth-child(1) { width:22%; }
+    .sources-table th:nth-child(2), .sources-table td:nth-child(2) { width:46%; }
+    .sources-table th:nth-child(3), .sources-table td:nth-child(3) { width:14%; }
+    .sources-table th:nth-child(4), .sources-table td:nth-child(4) { width:18%; text-align:right; }
+    .sources-table a { word-break: break-word; overflow-wrap:anywhere; display:inline-block; }
+    .table-wrap { overflow-x:auto; }
+    th, td { text-align:left; padding:14px 10px; border-bottom:1px solid #edf2f8; vertical-align:top; }
+    .auth { max-width:560px; margin:40px auto; }
+    .tabs { display:flex; gap:8px; margin-bottom:12px; }
+    .log { background:#0f172a; color:#e2e8f0; border-radius:8px; padding:10px; white-space:pre-wrap; }
+    .chips { display:flex; flex-wrap:wrap; gap:10px; }
+    .chip { border:1px solid var(--line); border-radius:999px; padding:5px 10px; background:#f8fbff; }
+    .board { display:grid; gap:14px; grid-template-columns:repeat(6,minmax(240px,1fr)); overflow-x:auto; }
+    .col { border:1px solid var(--line); border-radius:14px; background:#fff; min-height:150px; }
+    .col h4 { margin:0; padding:10px 12px; border-bottom:1px solid var(--line); font-size:15px; font-weight:700; display:flex; align-items:center; justify-content:space-between; }
+    .cards { padding:8px; display:grid; gap:8px; }
+    .grant-card { border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+    .badge { display:inline-block; font-size:11px; border-radius:999px; padding:2px 8px; margin-right:6px; border:1px solid var(--line); }
+    .b-rec { background:#dcfce7; }
+    .b-dead { background:#fee2e2; }
+    .b-man { background:#fff7ed; }
+    .col-New h4 { background:var(--new); }
+    .col-Shortlisted h4 { background:var(--short); }
+    .col-In\ Progress h4 { background:var(--prog); }
+    .col-Under\ Review h4 { background:var(--review); }
+    .col-Submitted h4 { background:var(--sub); }
+    .col-Closed h4 { background:var(--closed); }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns:1fr; }
+      .grid2 { grid-template-columns:1fr; }
+      .board { grid-template-columns:repeat(2,minmax(240px,1fr)); }
+    }
+    .page-title { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; }
+    .page-title h1 { margin:0; font-size:42px; line-height:1.05; font-weight:800; letter-spacing:-0.03em; }
+    .page-title p { margin:10px 0 0; color:var(--muted); font-size:17px; }
+    .icon-btn { width:44px; height:44px; border-radius:12px; display:inline-flex; align-items:center; justify-content:center; }
+    .filter-bar { display:flex; align-items:center; gap:16px; }
+    .filter-box { flex:1; display:flex; align-items:center; gap:16px; }
+    .filter-control { display:flex; flex-direction:column; gap:6px; }
+    .filter-pill { background:var(--pill); border-radius:12px; padding:10px 12px; min-width:200px; border:1px solid #f3f4f6; }
+    .grant-table th { font-size:14px; color:#374151; }
+    .grant-table td { font-size:14px; }
+    h3 { font-size:18px; margin:0 0 10px; }
+    .status-pill { padding:6px 10px; border-radius:999px; font-weight:600; font-size:12px; display:inline-block; }
+    .status-new { background:#e0ecff; color:#1d4ed8; }
+    .status-shortlisted { background:#fef3c7; color:#92400e; }
+    .status-progress { background:#ede9fe; color:#6d28d9; }
+    .status-review { background:#fce7f3; color:#9d174d; }
+    .status-submitted { background:#e0f2fe; color:#0369a1; }
+    .status-closed { background:#e5e7eb; color:#374151; }
+    .count-pill { background:#fff; border:1px solid var(--line); border-radius:999px; padding:4px 10px; font-size:12px; color:#111827; }
+    .score-good { color:#16a34a; font-weight:700; }
+    .score-mid { color:#d97706; font-weight:700; }
+    .score-low { color:#dc2626; font-weight:700; }
+    .debug-table { width:100%; border-collapse:collapse; margin-top:12px; }
+    .debug-table th, .debug-table td { padding:10px 12px; border-bottom:1px solid #edf2f8; font-size:14px; }
+    .debug-card { border:1px solid var(--line); border-radius:14px; background:#fff; margin-top:12px; overflow:hidden; }
+    .debug-card summary { list-style:none; cursor:pointer; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; font-weight:700; }
+    .debug-card summary::-webkit-details-marker { display:none; }
+    .debug-card-body { padding:0 16px 16px; display:grid; gap:12px; }
+    .debug-meta { display:flex; flex-wrap:wrap; gap:8px; }
+    .debug-pill { border-radius:999px; padding:4px 10px; font-size:12px; font-weight:700; background:#eef2ff; color:#1f2937; border:1px solid #e5e7eb; }
+    .flag-good { background:#dcfce7; color:#166534; }
+    .flag-warn { background:#fef3c7; color:#92400e; }
+    .flag-bad { background:#fee2e2; color:#b91c1c; }
+    .debug-grid { display:grid; gap:12px; grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .debug-kpi { border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:#fafafa; }
+    .debug-kpi strong { display:block; font-size:12px; color:var(--muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:.04em; }
+    .debug-kpi span { font-size:18px; font-weight:700; color:var(--text); }
+    .debug-section { border-top:1px solid #edf2f8; padding-top:12px; }
+    .debug-section h4 { margin:0 0 8px; font-size:15px; }
+    .debug-list, .debug-pre { margin:0; padding:10px 12px; background:#f8fafc; border:1px solid #edf2f8; border-radius:12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; white-space:pre-wrap; word-break:break-word; }
+    @media (max-width: 1100px) {
+      .debug-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .page-title h1 { font-size:34px; }
+    }
+    @media (max-width: 720px) {
+      .debug-grid { grid-template-columns:1fr; }
+      .page-title h1 { font-size:28px; }
+      body { font-size:15px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="authRoot" class="auth card">
+    <h2>OpportunityOS Auth</h2>
+    <div class="tabs">
+      <button id="tabLogin">Login</button>
+      <button id="tabSignup">Sign up</button>
+      <button id="tabReset">Reset password</button>
+    </div>
+    <div class="row">
+      <input id="authEmail" placeholder="email" type="email" />
+      <input id="authPassword" placeholder="password" type="password" />
+      <button id="authSubmit">Submit</button>
+    </div>
+    <pre id="authLog" class="log"></pre>
+  </div>
+
+  <div id="appRoot" class="layout hidden">
+    <aside class="sidebar">
+      <h3>OpportunityOS</h3>
+      <p id="userChip" class="muted"></p>
+      <button class="nav-btn" data-view="homeView">Home</button>
+      <button class="nav-btn" data-view="grantsView">Grant Writer</button>
+      <button class="nav-btn" data-view="settingsView">Settings</button>
+      <button class="nav-btn" id="logoutBtn">Logout</button>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div class="row">
+          <input id="searchInput" placeholder="Search grants by keyword, funder, criteria" style="min-width:320px;" />
+          <button id="searchBtn" class="btn btn-ghost">Search</button>
+        </div>
+      </div>
+
+      <section id="homeView">
+        <div class="card">
+          <h2>Home Summary</h2>
+          <div id="homeKpis" class="grid2"></div>
+        </div>
+        <div class="card">
+          <h3>Search Results</h3>
+          <p id="searchSummary" class="muted"></p>
+          <table><thead><tr><th>Title</th><th>Score</th><th>Deadline</th><th>Status</th></tr></thead><tbody id="searchRows"></tbody></table>
+        </div>
+      </section>
+
+      <section id="grantsView" class="hidden">
+        <div class="card">
+          <div class="page-title">
+            <div>
+              <h1>Grant Writer</h1>
+              <p>AI-powered grant discovery and application drafting</p>
+            </div>
+            <div class="row">
+              <button class="icon-btn btn-ghost" title="Grid view">▦</button>
+              <button class="icon-btn btn-ghost" title="List view">≡</button>
+              <button id="runGrantScan" class="btn btn-dark">Run Agent Now</button>
+            </div>
+          </div>
+          <div class="row" style="margin-top:12px;">
+            <label>Scheduled scan
+              <select id="grantSchedule"><option value="daily">Daily</option><option value="weekly">Weekly</option></select>
+            </label>
+            <button id="saveGrantSchedule" class="btn btn-ghost">Save schedule</button>
+            <span id="grantStatus" class="muted"></span>
+          </div>
+          <table style="margin-top:12px;">
+            <thead>
+              <tr>
+                <th>Scraped</th>
+                <th>Heuristic Rejected</th>
+                <th>Rule Rejected</th>
+                <th>Cache Hit</th>
+                <th>AI Called</th>
+                <th>Projected</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr id="debugCountsRow">
+                <td>-</td><td>-</td><td>-</td><td>-</td><td>-</td><td>-</td>
+              </tr>
+            </tbody>
+          </table>
+          <div id="debugDetails" class="muted" style="margin-top:10px;"></div>
+          <div class="muted" style="margin-top:10px;">Pipeline debug (all sources from last run):</div>
+          <div id="discoveryDebugPanel" class="muted" style="margin-top:6px;"></div>
+        </div>
+
+        <div>
+          <div class="card">
+            <h3>Sources</h3>
+            <div class="row">
+              <select id="recommendedSources"></select>
+              <button id="addRecommended">Add recommended source</button>
+              <button id="restoreRecommended">Restore defaults</button>
+            </div>
+            <div class="row">
+              <input id="srcName" placeholder="name" />
+              <input id="srcUrl" placeholder="url" />
+              <input id="srcAccess" placeholder="access" />
+              <button id="addSource">Add custom source</button>
+            </div>
+            <div class="table-wrap">
+              <table class="sources-table"><thead><tr><th>Name</th><th>URL</th><th>Access</th><th>Action</th></tr></thead><tbody id="grantSourcesRows"></tbody></table>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="row" style="justify-content:space-between;">
+              <h3>Grant Table</h3>
+              <span id="grantCount" class="muted"></span>
+            </div>
+            <table class="grant-table">
+              <thead>
+                <tr>
+                  <th>Grant</th>
+                  <th>Sector</th>
+                  <th>Max Amount</th>
+                  <th>State</th>
+                  <th>Deadline</th>
+                  <th>AI Score</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="grantScanRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="filter-bar">
+            <div class="filter-box">
+              <div class="filter-control">
+                <strong>State</strong>
+                <select id="filterState" class="filter-pill">
+                  <option value="">All States</option>
+                  <option>NSW</option><option>VIC</option><option>QLD</option><option>SA</option>
+                  <option>WA</option><option>TAS</option><option>ACT</option><option>NT</option>
+                </select>
+              </div>
+              <div class="filter-control">
+                <strong>Sector</strong>
+                <select id="filterSector" class="filter-pill">
+                  <option value="">All Sectors</option>
+                  <option>technology</option>
+                  <option>clean_energy</option>
+                  <option>advanced_manufacturing</option>
+                  <option>agriculture</option>
+                  <option>healthcare</option>
+                  <option>professional_services</option>
+                </select>
+              </div>
+              <div class="filter-control">
+                <strong>Min Score</strong>
+                <input id="filterMinScore" placeholder="min score" type="number" min="0" max="100" class="filter-pill" />
+              </div>
+            </div>
+            <div class="row">
+              <select id="sortBy">
+                <option value="deadline">Sort: Deadline</option>
+                <option value="amount">Sort: Amount</option>
+                <option value="score">Sort: Score</option>
+              </select>
+              <button id="applyBoardFilters" class="btn btn-ghost">Apply</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Grant Board</h3>
+          <div id="grantBoard" class="board"></div>
+        </div>
+
+        <div class="card">
+          <h3>Draft Application</h3>
+          <p class="muted" id="draftGrantMeta">Select a grant card to draft.</p>
+          <div class="row">
+            <input id="regenPrompt" placeholder="Regenerate hint: make concise, focus on jobs created" style="min-width:360px;" />
+            <button id="draftBtn">Draft application</button>
+            <button id="regenBtn">Regenerate</button>
+            <button id="markReviewedBtn">Mark as reviewed</button>
+            <button id="markSubmittedBtn">Mark as submitted</button>
+          </div>
+          <textarea id="draftEditor" rows="14" style="width:100%; margin-top:8px;"></textarea>
+          <div class="row" style="margin-top:8px;">
+            <input id="trackingNotes" placeholder="Notes (outcome tracker, contacts, refs)" style="min-width:320px;" />
+            <input id="trackingContacts" placeholder="Contact names" />
+            <input id="trackingRefs" placeholder="Reference numbers" />
+            <select id="trackingOutcome"><option>Pending</option><option>Awarded</option><option>Rejected</option></select>
+            <button id="saveTrackingBtn">Save tracking</button>
+          </div>
+          <table style="margin-top:10px;"><thead><tr><th>Version</th><th>Created</th></tr></thead><tbody id="draftRows"></tbody></table>
+        </div>
+      </section>
+
+      <section id="settingsView" class="hidden">
+        <div class="card">
+          <h2>Business Profile</h2>
+          <p id="profileCompleteness" class="muted"></p>
+          <div class="row">
+            <input id="setCompanyName" placeholder="company name" />
+            <input id="setAbn" placeholder="ABN" />
+            <input id="setAnzsic" placeholder="ANZSIC code" />
+            <select id="setBusinessStage"><option value="pre-revenue">pre-revenue</option><option value="early">early</option><option value="growth">growth</option><option value="established">established</option></select>
+            <input id="setHeadcount" type="number" min="1" placeholder="headcount" />
+            <input id="setRevenue" type="number" min="0" placeholder="annual revenue" />
+            <select id="setState"><option>NSW</option><option>VIC</option><option>QLD</option><option>SA</option><option>WA</option><option>TAS</option><option>ACT</option><option>NT</option></select>
+          </div>
+          <textarea id="setObjectives" rows="4" style="width:100%;" placeholder="Business objectives (up to 500 words)"></textarea>
+          <input id="setGoals" placeholder='goals JSON e.g. ["expand operations","buy equipment"]' style="width:100%;" />
+          <div class="row">
+            <input id="setName" placeholder="owner name" />
+            <input id="setOrg" placeholder="organisation" />
+            <label>Company size
+              <select id="setCompanySize"><option value="micro">Micro</option><option value="small">Small</option><option value="medium">Medium</option><option value="large">Large</option></select>
+            </label>
+            <input id="setTimezone" placeholder="timezone" value="Australia/Sydney" />
+          </div>
+          <div class="row">
+            <span class="muted">Interest industries</span>
+            <div id="industryChoices" class="chips">
+              <label class="chip"><input type="checkbox" value="technology" /> Technology</label>
+              <label class="chip"><input type="checkbox" value="clean_energy" /> Clean Energy</label>
+              <label class="chip"><input type="checkbox" value="advanced_manufacturing" /> Advanced Manufacturing</label>
+              <label class="chip"><input type="checkbox" value="agriculture" /> Agriculture</label>
+              <label class="chip"><input type="checkbox" value="healthcare" /> Healthcare</label>
+              <label class="chip"><input type="checkbox" value="education" /> Education</label>
+              <label class="chip"><input type="checkbox" value="retail" /> Retail</label>
+              <label class="chip"><input type="checkbox" value="professional_services" /> Professional Services</label>
+            </div>
+          </div>
+          <div class="row">
+            <button id="saveSettings">Save settings</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card"><pre id="appLog" class="log"></pre></section>
+    </main>
+  </div>
+
+<script>
+(() => {
+  const API = "http://127.0.0.1:8000";
+  let authMode = "login";
+  let accessToken = localStorage.getItem("opportunityos_token") || "";
+  let currentUser = localStorage.getItem("opportunityos_user") || "";
+  let cachedResults = [];
+  let cachedSources = [];
+  let selectedGrantId = "";
+
+  const q = (id) => document.getElementById(id);
+  const authRoot = q("authRoot");
+  const appRoot = q("appRoot");
+  const appLog = q("appLog");
+  const clearSessionAndShowLogin = (message) => {
+    accessToken = "";
+    currentUser = "";
+    localStorage.removeItem("opportunityos_token");
+    localStorage.removeItem("opportunityos_user");
+    appRoot.classList.add("hidden");
+    authRoot.classList.remove("hidden");
+    q("authLog").textContent = message || "Session expired. Please log in again.";
+    if (q("grantStatus")) q("grantStatus").textContent = message || "Session expired. Please log in again.";
+  };
+
+  const jfetch = async (url, options = {}) => {
+    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
+    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
+    const res = await fetch(url, { ...options, headers });
+    let payload = {};
+    try {
+      payload = await res.json();
+    } catch {
+      payload = { error: `request failed (${res.status})` };
+    }
+    if (res.status === 401 && !url.includes("/api/v1/auth/")) {
+      clearSessionAndShowLogin("Session expired (invalid token). Please log in again.");
+      throw new Error("invalid token");
+    }
+    if (!res.ok) throw new Error(payload.error || payload.detail || "request failed");
+    return payload;
+  };
+
+  const setLog = (obj) => { appLog.textContent = JSON.stringify(obj, null, 2); };
+  const escapeHtml = (value) => String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+  let lastRunDebug = null;
+  const setDebugCounts = (run) => {
+    const row = q("debugCountsRow");
+    if (!row) return;
+    const v = (key) => (run && run[key] !== undefined ? run[key] : "-");
+    row.innerHTML = `
+      <td>${v("scraped_count")}</td>
+      <td>${v("heuristic_rejected_count")}</td>
+      <td>${v("rule_rejected_count")}</td>
+      <td>${v("cache_hit_count")}</td>
+      <td>${v("ai_called_count")}</td>
+      <td>${v("projected_count")}</td>
+    `;
+    lastRunDebug = run || null;
+    const detail = q("debugDetails");
+    if (!detail || !run) return;
+    const reasons = run.rule_fail_reasons || {};
+    const reasonText = Object.keys(reasons).length
+      ? Object.entries(reasons).map(([k, count]) => `${k} (${count})`).join(", ")
+      : "none";
+    detail.textContent =
+      `AI outcomes: eligible ${v("ai_eligible_count")}, partial ${v("ai_partial_count")}, not eligible ${v("ai_rejected_count")}. ` +
+      `Rule rejects: ${reasonText}.`;
+    renderDiscoveryDebug();
+  };
+  const toSourceId = (name) => `src-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")}`;
+  const parseJsonList = (raw, fallback = []) => {
+    try {
+      const parsed = JSON.parse(raw || "[]");
+      return Array.isArray(parsed) ? parsed : fallback;
+    } catch {
+      return fallback;
+    }
+  };
+  const getIndustrySelection = () => Array.from(document.querySelectorAll("#industryChoices input[type=checkbox]:checked")).map((el) => el.value);
+  const setIndustrySelection = (values) => {
+    const selected = new Set(values || []);
+    document.querySelectorAll("#industryChoices input[type=checkbox]").forEach((el) => { el.checked = selected.has(el.value); });
+  };
+
+  function showView(id) {
+    ["homeView", "grantsView", "settingsView"].forEach((key) => q(key).classList.toggle("hidden", key !== id));
+  }
+
+  function boardColumns() {
+    return ["New", "Shortlisted", "In Progress", "Under Review", "Submitted", "Closed"];
+  }
+
+  function renderBoard(board) {
+    const root = q("grantBoard");
+    root.innerHTML = "";
+    boardColumns().forEach((name) => {
+      const col = document.createElement("div");
+      col.className = `col col-${name}`;
+      const rows = board[name] || [];
+      const cards = rows.map((r) => {
+        const badge = [
+          r.recommended ? '<span class="badge b-rec">Recommended</span>' : "",
+          r.deadline_soon ? '<span class="badge b-dead">Deadline soon</span>' : "",
+          r.manual_check_needed ? '<span class="badge b-man">Manual check needed</span>' : "",
+        ].join("");
+        return `
+          <div class="grant-card" data-id="${r.id}">
+            <div>${badge}</div>
+            <b>${r.title}</b>
+            <div class="muted">${r.funder} · Score ${r.match_score}</div>
+            <div class="muted">Due ${r.due_date}</div>
+            <div class="row" style="margin-top:6px;">
+              <button data-open="${r.id}">Open</button>
+              <select data-move="${r.id}">
+                ${boardColumns().map((c) => `<option ${c===r.workflow_status?"selected":""}>${c}</option>`).join("")}
+              </select>
+            </div>
+          </div>
+        `;
+      }).join("");
+      col.innerHTML = `<h4><span>${name}</span><span class="count-pill">${rows.length}</span></h4><div class="cards">${cards}</div>`;
+      root.appendChild(col);
+    });
+
+    root.querySelectorAll("button[data-open]").forEach((btn) => {
+      btn.onclick = async () => {
+        selectedGrantId = btn.dataset.open;
+        const row = cachedResults.find((r) => r.id === selectedGrantId);
+        q("draftGrantMeta").textContent = row ? `${row.title} | ${row.funder} | Score ${row.match_score}` : "Selected";
+        q("trackingNotes").value = row?.notes || "";
+        q("trackingContacts").value = row?.contact_names || "";
+        q("trackingRefs").value = row?.reference_numbers || "";
+        q("trackingOutcome").value = row?.outcome || "Pending";
+        await loadDrafts();
+      };
+    });
+
+    root.querySelectorAll("select[data-move]").forEach((sel) => {
+      sel.onchange = async () => {
+        await jfetch(`${API}/api/v1/grant-writer/board/move`, { method:"POST", body: JSON.stringify({ grant_result_id: sel.dataset.move, workflow_status: sel.value }) });
+        await loadGrantWriter();
+      };
+    });
+  }
+
+  async function loadBoard() {
+    const qs = new URLSearchParams();
+    if (q("filterState").value.trim()) qs.set("state", q("filterState").value.trim());
+    if (q("filterSector").value.trim()) qs.set("sector", q("filterSector").value.trim());
+    if (q("filterMinScore").value.trim()) qs.set("min_score", q("filterMinScore").value.trim());
+    qs.set("sort_by", q("sortBy").value);
+    const data = await jfetch(`${API}/api/v1/grant-writer/board?${qs.toString()}`);
+    renderBoard(data.board || {});
+  }
+
+  async function loadSettings() {
+    const data = await jfetch(`${API}/api/v1/settings`);
+    const p = data.profile;
+    q("setCompanyName").value = p.company_name || "";
+    q("setAbn").value = p.abn || "";
+    q("setAnzsic").value = p.anzsic_code || "";
+    q("setBusinessStage").value = p.business_stage || "early";
+    q("setHeadcount").value = p.headcount || 1;
+    q("setRevenue").value = p.revenue || 0;
+    q("setState").value = p.state_territory || "NSW";
+    q("setObjectives").value = p.business_objectives || "";
+    q("setGoals").value = p.goals_json || "[]";
+    q("setName").value = p.name || "";
+    q("setOrg").value = p.organisation || "";
+    q("setCompanySize").value = p.company_size || "small";
+    q("setTimezone").value = p.timezone || "Australia/Sydney";
+    setIndustrySelection(parseJsonList(p.interest_industries, ["technology"]));
+    const c = data.profile_completeness || { score: 0, is_complete: false, missing_fields: [] };
+    q("profileCompleteness").textContent = c.is_complete ? `Profile completeness: ${c.score}% (ready to scan)` : `Profile completeness: ${c.score}% | Missing: ${c.missing_fields.join(", ")}`;
+  }
+
+  async function loadHome() {
+    const data = await jfetch(`${API}/api/v1/home`);
+    const kpi = q("homeKpis");
+    kpi.innerHTML = "";
+    Object.entries(data.vertical_summary || {}).forEach(([vertical, row]) => {
+      const div = document.createElement("div");
+      div.className = "kpi";
+      div.innerHTML = `<b>${vertical}</b><div>Count: ${row.count}</div><div>Last: ${row.last_run || "-"}</div><div>Next: ${row.next_run || "-"}</div>`;
+      kpi.appendChild(div);
+    });
+  }
+
+  async function loadGrantWriter() {
+    const data = await jfetch(`${API}/api/v1/grant-writer/dashboard`);
+    q("grantSchedule").value = data.schedule || "daily";
+    cachedResults = data.scan_results || [];
+    cachedSources = data.sources || [];
+
+    const rec = q("recommendedSources");
+    rec.innerHTML = "";
+    (data.recommended_sources || []).forEach((src) => {
+      const opt = document.createElement("option");
+      opt.value = JSON.stringify(src);
+      opt.textContent = `${src.name} (${src.url})`;
+      rec.appendChild(opt);
+    });
+
+    renderSources();
+    renderDiscoveryDebug();
+
+    const scanRows = q("grantScanRows");
+    scanRows.innerHTML = "";
+    (data.scan_results || []).forEach((r) => {
+      const status = (r.workflow_status || r.status || "new").toLowerCase();
+      const statusClass =
+        status.includes("short") ? "status-shortlisted"
+        : status.includes("progress") ? "status-progress"
+        : status.includes("review") ? "status-review"
+        : status.includes("submitted") ? "status-submitted"
+        : status.includes("closed") ? "status-closed"
+        : "status-new";
+      const scoreClass = r.match_score >= 80 ? "score-good" : (r.match_score >= 65 ? "score-mid" : "score-low");
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>
+          <div><strong>${r.title || "-"}</strong></div>
+          <div class="muted">${r.funder || "-"}</div>
+        </td>
+        <td><span class="status-pill" style="background:#f3e8ff;color:#6d28d9;">${r.industry || "-"}</span></td>
+        <td>${r.grant_amount || "-"}</td>
+        <td><span class="status-pill">${r.location || "-"}</span></td>
+        <td>${r.due_date || "-"}</td>
+        <td class="${scoreClass}">${r.match_score || 0}</td>
+        <td><span class="status-pill ${statusClass}">${status.replace("_"," ")}</span></td>
+        <td><a href="${r.application_url || r.url}" target="_blank">View</a></td>
+      `;
+      scanRows.appendChild(tr);
+    });
+    q("grantCount").textContent = `${(data.scan_results || []).length} grants`;
+
+    renderBoard(data.board || {});
+  }
+
+  function renderSources() {
+    const srcRows = q("grantSourcesRows");
+    srcRows.innerHTML = "";
+    cachedSources.forEach((source) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${source.name}</td><td><a href="${source.url}" target="_blank">${source.url}</a></td><td>${source.access}</td><td><button data-id="${source.id}">Remove</button></td>`;
+      tr.querySelector("button").onclick = async () => {
+        const btn = tr.querySelector("button");
+        btn.disabled = true;
+        btn.textContent = "Removing...";
+        try {
+          await jfetch(`${API}/api/v1/grant-writer/sources/delete`, { method:"POST", body: JSON.stringify({ source_id: source.id }) });
+          cachedSources = cachedSources.filter((s) => s.id !== source.id);
+          tr.remove();
+          q("grantStatus").textContent = `Removed source: ${source.name}`;
+        } catch (err) {
+          btn.disabled = false;
+          btn.textContent = "Remove";
+          q("grantStatus").textContent = `Remove failed: ${String(err)}`;
+        }
+      };
+      srcRows.appendChild(tr);
+    });
+  }
+
+  async function loadDrafts() {
+    if (!selectedGrantId) return;
+    const data = await jfetch(`${API}/api/v1/grant-writer/drafts?grant_result_id=${encodeURIComponent(selectedGrantId)}`);
+    const rows = q("draftRows");
+    rows.innerHTML = "";
+    (data.drafts || []).forEach((d) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>v${d.version}</td><td>${d.created_at}</td>`;
+      tr.onclick = () => { q("draftEditor").value = d.content; };
+      rows.appendChild(tr);
+    });
+    if (data.drafts && data.drafts[0]) q("draftEditor").value = data.drafts[0].content;
+  }
+
+  async function bootstrap() {
+    q("userChip").textContent = currentUser;
+    await Promise.all([loadHome(), loadGrantWriter(), loadSettings()]);
+  }
+
+  q("tabLogin").onclick = () => authMode = "login";
+  q("tabSignup").onclick = () => authMode = "signup";
+  q("tabReset").onclick = () => authMode = "reset";
+
+  q("authSubmit").onclick = async () => {
+    try {
+      const email = q("authEmail").value.trim();
+      const password = q("authPassword").value;
+      let res;
+      if (authMode === "signup") res = await jfetch(`${API}/api/v1/auth/signup`, { method:"POST", body: JSON.stringify({ email, password }) });
+      else if (authMode === "reset") res = await jfetch(`${API}/api/v1/auth/password-reset`, { method:"POST", body: JSON.stringify({ email }) });
+      else res = await jfetch(`${API}/api/v1/auth/login`, { method:"POST", body: JSON.stringify({ email, password }) });
+      q("authLog").textContent = JSON.stringify(res, null, 2);
+      if (res.access_token) {
+        accessToken = res.access_token;
+        currentUser = res.user?.email || email;
+        localStorage.setItem("opportunityos_token", accessToken);
+        localStorage.setItem("opportunityos_user", currentUser);
+        authRoot.classList.add("hidden");
+        appRoot.classList.remove("hidden");
+        await bootstrap();
+      }
+    } catch (e) {
+      q("authLog").textContent = String(e);
+    }
+  };
+
+  document.querySelectorAll(".nav-btn[data-view]").forEach((btn) => {
+    btn.onclick = () => showView(btn.dataset.view);
+  });
+
+  q("logoutBtn").onclick = () => {
+    localStorage.removeItem("opportunityos_token");
+    localStorage.removeItem("opportunityos_user");
+    location.reload();
+  };
+
+  q("searchBtn").onclick = async () => {
+    const query = q("searchInput").value;
+    const res = await jfetch(`${API}/api/v1/search`, { method:"POST", body: JSON.stringify({ query }) });
+    q("searchSummary").textContent = res.summary || "";
+    const rows = q("searchRows");
+    rows.innerHTML = "";
+    (res.results || []).forEach((item) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${item.title}</td><td>${item.match_score}</td><td>${item.due_date}</td><td>${item.workflow_status}</td>`;
+      rows.appendChild(tr);
+    });
+  };
+
+  q("saveSettings").onclick = async () => {
+    const payload = {
+      company_name: q("setCompanyName").value,
+      abn: q("setAbn").value,
+      anzsic_code: q("setAnzsic").value,
+      business_stage: q("setBusinessStage").value,
+      headcount: Number(q("setHeadcount").value || 1),
+      revenue: Number(q("setRevenue").value || 0),
+      goals: parseJsonList(q("setGoals").value, []),
+      state_territory: q("setState").value,
+      business_objectives: q("setObjectives").value,
+      name: q("setName").value,
+      organisation: q("setOrg").value,
+      company_size: q("setCompanySize").value,
+      interest_industries: getIndustrySelection(),
+      timezone: q("setTimezone").value,
+    };
+    const res = await jfetch(`${API}/api/v1/settings`, { method:"POST", body: JSON.stringify(payload) });
+    setLog(res);
+    await loadSettings();
+  };
+
+  q("addRecommended").onclick = async () => {
+    const raw = q("recommendedSources").value;
+    if (!raw) return;
+    const src = JSON.parse(raw);
+    await jfetch(`${API}/api/v1/grant-writer/sources/upsert`, {
+      method:"POST",
+      body: JSON.stringify({ source_id: src.id, name: src.name, url: src.url, access: src.access, active:true }),
+    });
+    await loadGrantWriter();
+  };
+
+  q("restoreRecommended").onclick = async () => {
+    const btn = q("restoreRecommended");
+    btn.disabled = true;
+    try {
+      const before = cachedSources.length;
+      await jfetch(`${API}/api/v1/grant-writer/sources/reset-defaults`, { method:"POST", body: "{}" });
+      await loadGrantWriter();
+      q("grantStatus").textContent = `Restored defaults. Sources: ${before} -> ${cachedSources.length}`;
+    } catch (err) {
+      q("grantStatus").textContent = `Restore failed: ${String(err)}`;
+    } finally {
+      btn.disabled = false;
+    }
+  };
+
+  q("addSource").onclick = async () => {
+    const name = q("srcName").value.trim();
+    const url = q("srcUrl").value.trim();
+    if (!name || !url) return;
+    const access = q("srcAccess").value.trim() || "Public";
+    const res = await jfetch(`${API}/api/v1/grant-writer/sources/upsert`, { method:"POST", body: JSON.stringify({ source_id: toSourceId(name), name, url, access, active:true }) });
+    setLog(res);
+    q("srcName").value = "";
+    q("srcUrl").value = "";
+    q("srcAccess").value = "";
+    await loadGrantWriter();
+  };
+
+  q("saveGrantSchedule").onclick = async () => {
+    const res = await jfetch(`${API}/api/v1/grant-writer/schedule`, { method:"POST", body: JSON.stringify({ frequency: q("grantSchedule").value }) });
+    q("grantStatus").textContent = `Saved: ${res.schedule}`;
+    setLog(res);
+  };
+
+  const renderDiscoveryDebug = () => {
+    const panel = q("discoveryDebugPanel");
+    if (!panel) return;
+    const run = lastRunDebug || {};
+    const namesById = Object.fromEntries((cachedSources || []).map((s) => [s.id, s.name]));
+    const discoveryMap = run.discovery_debugs || {};
+    const pipelineRuns = Array.isArray(run.pipeline_runs) && run.pipeline_runs.length
+      ? run.pipeline_runs
+      : Object.entries(discoveryMap).map(([sourceId, dbg]) => ({ source_id: sourceId, source_name: namesById[sourceId] || sourceId, ...dbg }));
+    const statusClass = (row) => {
+      if (row.fetch_status !== "success" || row.failed_step) return "flag-bad";
+      if (!row.links_after_filter || !row.successful_extractions) return "flag-warn";
+      return "flag-good";
+    };
+    const statusLabel = (row) => {
+      if (row.fetch_status !== "success") return "Fetch failed";
+      if (row.failed_step) return row.failed_step.replaceAll("_", " ");
+      if (!row.links_after_filter) return "No candidate links";
+      if (!row.successful_extractions) return "No valid extractions";
+      return "Success";
+    };
+    const listBlock = (arr) => {
+      if (!arr || !arr.length) return `<div class="debug-list">none</div>`;
+      return `<div class="debug-list">${arr.slice(0, 30).map((item) => escapeHtml(typeof item === "string" ? item : JSON.stringify(item))).join("\n")}</div>`;
+    };
+    const jsonBlock = (value) => {
+      if (!value || (Array.isArray(value) && !value.length) || (typeof value === "object" && !Array.isArray(value) && !Object.keys(value).length)) {
+        return `<div class="debug-pre">none</div>`;
+      }
+      return `<div class="debug-pre">${escapeHtml(JSON.stringify(value, null, 2))}</div>`;
+    };
+    if (!pipelineRuns.length) {
+      panel.innerHTML = `<div class="debug-pre">No pipeline debug available yet. Run Agent Now to capture it.</div>`;
+      return;
+    }
+    const summaryRows = pipelineRuns.map((row) => `
+      <tr>
+        <td>${escapeHtml(row.source_name || namesById[row.source_id] || row.source_id || "-")}</td>
+        <td>${escapeHtml(row.site || "-")}</td>
+        <td>${escapeHtml(row.source_type || "UNKNOWN")}</td>
+        <td>${escapeHtml(row.page_type || "-")}</td>
+        <td>${Number(row.links_found || 0)} → ${Number(row.links_after_filter || 0)} → ${Number(row.final_selected_count || 0)}</td>
+        <td>${Number(row.successful_extractions || 0)}</td>
+        <td><span class="debug-pill ${statusClass(row)}">${escapeHtml(statusLabel(row))}</span></td>
+      </tr>
+    `).join("");
+    const details = pipelineRuns.map((row, index) => `
+      <details class="debug-card" ${index === 0 ? "open" : ""}>
+        <summary>
+          <span>${escapeHtml(row.source_name || namesById[row.source_id] || row.source_id || "-")}</span>
+          <span class="debug-meta">
+            <span class="debug-pill">${escapeHtml(row.site || "-")}</span>
+            <span class="debug-pill">${escapeHtml(row.source_type || "UNKNOWN")}</span>
+            <span class="debug-pill">${escapeHtml(row.page_type || "-")}</span>
+            <span class="debug-pill ${statusClass(row)}">${escapeHtml(statusLabel(row))}</span>
+          </span>
+        </summary>
+        <div class="debug-card-body">
+          <div class="debug-grid">
+            <div class="debug-kpi"><strong>Fetch</strong><span>${escapeHtml(row.fetch_status || "-")}</span></div>
+            <div class="debug-kpi"><strong>Content Length</strong><span>${Number(row.content_length || 0)}</span></div>
+            <div class="debug-kpi"><strong>Links</strong><span>${Number(row.links_found || 0)} / ${Number(row.links_after_filter || 0)}</span></div>
+            <div class="debug-kpi"><strong>Details Processed</strong><span>${Number(row.detail_pages_processed || 0)}</span></div>
+            <div class="debug-kpi"><strong>Extractions</strong><span>${Number(row.successful_extractions || 0)}</span></div>
+            <div class="debug-kpi"><strong>Normalized</strong><span>${Number(row.normalized_count || 0)}</span></div>
+            <div class="debug-kpi"><strong>Cache / AI</strong><span>${Number(row.cache_hit_count || 0)} / ${Number(row.ai_called_count || 0)}</span></div>
+            <div class="debug-kpi"><strong>Rejected</strong><span>${Number(row.heuristic_rejected_count || 0)}H / ${Number(row.rule_rejected_count || 0)}R</span></div>
+          </div>
+          <div class="debug-section">
+            <h4>Step Trace</h4>
+            <div class="debug-pre">[1] Source Detection: ${escapeHtml(row.registry_status || "unknown")} / ${escapeHtml(row.source_type || "UNKNOWN")}
+[2] Fetch Content: ${escapeHtml(row.fetch_status || "-")} (${Number(row.content_length || 0)} chars)
+[3] Page Type Detection: ${escapeHtml(row.page_type || "-")}
+[4] Listing Extraction: found ${Number(row.links_found || 0)}, filtered ${Number(row.links_after_filter || 0)}, selected ${Number(row.final_selected_count || 0)}
+[5] Detail Fetch: processed ${Number(row.detail_pages_processed || 0)}
+[6] Field Extraction: successful ${Number(row.successful_extractions || 0)}
+[7] Normalisation: ${Number(row.normalized_count || 0)}
+[8] Deduplication: ${Number(row.deduplicated_count || 0)}</div>
+          </div>
+          <div class="debug-section">
+            <h4>Errors</h4>
+            <div class="debug-pre">${escapeHtml(row.failed_step || "none")} ${row.error_message ? `| ${row.error_message}` : ""}</div>
+          </div>
+          <div class="debug-section">
+            <h4>Raw HTML Preview</h4>
+            <div class="debug-pre">${escapeHtml(row.raw_preview || "none")}</div>
+          </div>
+          <div class="debug-section">
+            <h4>Extracted Links</h4>
+            ${listBlock(row.extracted_links)}
+          </div>
+          <div class="debug-section">
+            <h4>Filtered Links</h4>
+            ${listBlock(row.filtered_links)}
+          </div>
+          <div class="debug-section">
+            <h4>Final Selected Links</h4>
+            ${listBlock(row.selected_links)}
+          </div>
+          <div class="debug-section">
+            <h4>Detail URLs</h4>
+            ${listBlock(row.detail_urls)}
+          </div>
+          <div class="debug-section">
+            <h4>Sample Output</h4>
+            ${jsonBlock(row.sample_output)}
+          </div>
+          <div class="debug-section">
+            <h4>Config</h4>
+            ${jsonBlock(row.config)}
+          </div>
+          <div class="debug-section">
+            <h4>API Config</h4>
+            ${jsonBlock(row.api_config)}
+          </div>
+          <div class="debug-section">
+            <h4>Patterns / Pagination</h4>
+            <div class="debug-pre">Top patterns: ${escapeHtml((row.top_patterns || []).join(", ") || "none")}
+Pagination chain: ${escapeHtml((row.pagination_chain || []).join(", ") || "none")}</div>
+          </div>
+        </div>
+      </details>
+    `).join("");
+    panel.innerHTML = `
+      <table class="debug-table">
+        <thead>
+          <tr><th>Source</th><th>Site</th><th>Type</th><th>Page</th><th>Links</th><th>Extracted</th><th>Status</th></tr>
+        </thead>
+        <tbody>${summaryRows}</tbody>
+      </table>
+      ${details}
+    `;
+  };
+
+  q("runGrantScan").onclick = async () => {
+    const res = await jfetch(`${API}/api/v1/grant-writer/scan`, { method:"POST", body: "{}" });
+    q("grantStatus").textContent = `Scanned ${res.scanned_count} grants, eligible ${res.eligible_count}`;
+    setDebugCounts(res);
+    setLog(res);
+    await loadGrantWriter();
+  };
+
+  q("applyBoardFilters").onclick = async () => {
+    await loadBoard();
+  };
+
+  q("draftBtn").onclick = async () => {
+    if (!selectedGrantId) return;
+    const res = await jfetch(`${API}/api/v1/grant-writer/draft`, { method:"POST", body: JSON.stringify({ grant_result_id: selectedGrantId, prompt: "" }) });
+    q("draftEditor").value = res.draft?.content || "";
+    await Promise.all([loadDrafts(), loadGrantWriter()]);
+  };
+
+  q("regenBtn").onclick = async () => {
+    if (!selectedGrantId) return;
+    const res = await jfetch(`${API}/api/v1/grant-writer/draft`, { method:"POST", body: JSON.stringify({ grant_result_id: selectedGrantId, prompt: q("regenPrompt").value }) });
+    q("draftEditor").value = res.draft?.content || "";
+    await Promise.all([loadDrafts(), loadGrantWriter()]);
+  };
+
+  q("markReviewedBtn").onclick = async () => {
+    if (!selectedGrantId) return;
+    await jfetch(`${API}/api/v1/grant-writer/mark-reviewed`, { method:"POST", body: JSON.stringify({ grant_result_id: selectedGrantId }) });
+    await loadGrantWriter();
+  };
+
+  q("markSubmittedBtn").onclick = async () => {
+    if (!selectedGrantId) return;
+    await jfetch(`${API}/api/v1/grant-writer/mark-submitted`, { method:"POST", body: JSON.stringify({ grant_result_id: selectedGrantId }) });
+    await loadGrantWriter();
+  };
+
+  q("saveTrackingBtn").onclick = async () => {
+    if (!selectedGrantId) return;
+    await jfetch(`${API}/api/v1/grant-writer/tracking`, {
+      method:"POST",
+      body: JSON.stringify({
+        grant_result_id: selectedGrantId,
+        notes: q("trackingNotes").value,
+        contact_names: q("trackingContacts").value,
+        reference_numbers: q("trackingRefs").value,
+        outcome: q("trackingOutcome").value,
+      }),
+    });
+    await loadGrantWriter();
+  };
+
+  if (accessToken) {
+    authRoot.classList.add("hidden");
+    appRoot.classList.remove("hidden");
+    bootstrap().catch((e) => {
+      q("searchSummary").textContent = String(e);
+      if (String(e).toLowerCase().includes("invalid token")) {
+        clearSessionAndShowLogin("Session expired (invalid token). Please log in again.");
+      }
+    });
+  }
+})();
+</script>
+</body>
+</html>

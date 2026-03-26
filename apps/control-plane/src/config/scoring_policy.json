@@ -1,0 +1,18 @@
+{
+  "value_weight": 0.65,
+  "risk_weight": 0.35,
+  "risk_factors": {
+    "low": 1.0,
+    "medium": 0.75,
+    "high": 0.5
+  },
+  "domain_bonus": {
+    "stocks": 0.05,
+    "real_estate": 0.1,
+    "grants": 0.15
+  },
+  "max_value_estimate": 1500000,
+  "base_confidence": 0.6,
+  "value_confidence_weight": 0.25,
+  "risk_confidence_weight": 0.15
+}

@@ -1,0 +1,76 @@
+version: "3.9"
+
+services:
+  # ─────────────────────────────────────────────
+  # Control Plane Backend
+  # ─────────────────────────────────────────────
+  api:
+    build:
+      context: ./apps/control-plane
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/sonic_celestial
+      - REDIS_URL=redis://cache:6379/0
+    env_file:
+      - ./apps/control-plane/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+    volumes:
+      - ./apps/control-plane:/app
+    command: uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ─────────────────────────────────────────────
+  # Frontend Web App
+  # ─────────────────────────────────────────────
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    command: npm run dev
+
+  # ─────────────────────────────────────────────
+  # PostgreSQL Database
+  # ─────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sonic_celestial
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────────────────
+  # Redis (Cache + Job Queue)
+  # ─────────────────────────────────────────────
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
