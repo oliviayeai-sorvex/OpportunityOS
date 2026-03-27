@@ -221,6 +221,7 @@ class GenericGrantDiscovery:
                     "extracted_links": [],
                     "filtered_links": [],
                     "selected_links": [],
+                    "stage_trace": self._init_stage_trace(),
                 }
             )
         api_config = None
@@ -235,6 +236,14 @@ class GenericGrantDiscovery:
         if discovery_debug is not None:
             discovery_debug["source_type"] = source_type
             discovery_debug["source_signals"] = source_signals
+            discovery_debug["source_confidence"] = self._source_confidence(source_type, source_signals)
+            self._set_stage(
+                discovery_debug,
+                "source_detection",
+                status="success",
+                confidence=float(discovery_debug["source_confidence"]),
+                reason=str(source_signals.get("reason", "detected")),
+            )
             if config:
                 discovery_debug["config"] = config
             if api_config:
@@ -248,6 +257,14 @@ class GenericGrantDiscovery:
                 discovery_debug["fetch_status"] = "success"
                 discovery_debug["page_type"] = "LISTING"
                 discovery_debug["fetch_method"] = "api"
+                self._set_stage(discovery_debug, "fetch_content", status="success", confidence=1.0, reason="api endpoint")
+                self._set_stage(
+                    discovery_debug,
+                    "page_type_detection",
+                    status="success",
+                    confidence=1.0,
+                    reason="api source treated as listing",
+                )
             links = self._extract_links(
                 source.url,
                 html="",
@@ -265,6 +282,13 @@ class GenericGrantDiscovery:
                     discovery_debug["failed_step"] = "FETCH_CONTENT"
                     discovery_debug["error_message"] = str(listing_fetch.get("error", "listing fetch failed"))
                     discovery_debug["fetch_method"] = str(listing_fetch.get("fetch_method", ""))
+                    self._set_stage(
+                        discovery_debug,
+                        "fetch_content",
+                        status="failed",
+                        confidence=0.0,
+                        reason=str(listing_fetch.get("error", "listing fetch failed")),
+                    )
                 return []
             listing_html = str(listing_fetch.get("raw_html", ""))
             if discovery_debug is not None:
@@ -273,6 +297,13 @@ class GenericGrantDiscovery:
                 discovery_debug["content_type"] = str(listing_fetch.get("content_type", ""))
                 discovery_debug["content_length"] = int(listing_fetch.get("content_length", len(listing_html)))
                 discovery_debug["raw_preview"] = listing_html[:1000]
+                self._set_stage(
+                    discovery_debug,
+                    "fetch_content",
+                    status="success",
+                    confidence=self._fetch_confidence(int(discovery_debug["content_length"])),
+                    reason=f"method={discovery_debug['fetch_method']}",
+                )
             links = self._extract_links(
                 source.url,
                 listing_html,
@@ -286,6 +317,13 @@ class GenericGrantDiscovery:
             if discovery_debug is not None and not discovery_debug.get("error_message"):
                 discovery_debug["failed_step"] = "LISTING_EXTRACTION"
                 discovery_debug["error_message"] = "no candidate links found"
+                self._set_stage(
+                    discovery_debug,
+                    "listing_extraction",
+                    status="failed",
+                    confidence=0.0,
+                    reason="no candidate links found",
+                )
             return []
         if time.perf_counter() - started_at > self._source_budget_sec:
             if discovery_debug is not None:
@@ -306,7 +344,15 @@ class GenericGrantDiscovery:
             discovery_debug["final_selected_count"] = len(selected_links)
             discovery_debug["detail_pages_processed"] = len(selected_links)
             discovery_debug["detail_urls"] = [url for url, _ in selected_links]
+            self._set_stage(
+                discovery_debug,
+                "listing_extraction",
+                status="success",
+                confidence=self._listing_confidence(int(discovery_debug.get("links_found", 0)), len(selected_links)),
+                reason=f"selected={len(selected_links)}",
+            )
         detail_fetch_map: dict[str, dict] = {}
+        detail_fetch_ok = 0
         for url, _ in selected_links:
             if time.perf_counter() - started_at > self._source_budget_sec:
                 if discovery_debug is not None:
@@ -318,6 +364,18 @@ class GenericGrantDiscovery:
             fetch["detail_type"] = detail_type
             fetch["detail_signals"] = detail_signals
             detail_fetch_map[url] = fetch
+            if fetch.get("ok"):
+                detail_fetch_ok += 1
+        if discovery_debug is not None:
+            detail_count = len(selected_links)
+            confidence = (detail_fetch_ok / detail_count) if detail_count else 0.0
+            self._set_stage(
+                discovery_debug,
+                "detail_fetch",
+                status="success" if detail_fetch_ok > 0 else "failed",
+                confidence=confidence,
+                reason=f"ok={detail_fetch_ok}/{detail_count}",
+            )
         for url, anchor_text in selected_links:
             if time.perf_counter() - started_at > self._source_budget_sec:
                 if discovery_debug is not None and not discovery_debug.get("failed_step"):
@@ -410,9 +468,39 @@ class GenericGrantDiscovery:
             )
         if discovery_debug is not None:
             discovery_debug["sample_output"] = [row.get("discovery_normalized", {}) for row in out[:2]]
+            normalized_count = int(discovery_debug.get("normalized_count", 0))
+            if normalized_count > 0:
+                self._set_stage(
+                    discovery_debug,
+                    "field_extraction",
+                    status="success",
+                    confidence=min(1.0, normalized_count / max(1, len(selected_links))),
+                    reason=f"extracted={int(discovery_debug.get('successful_extractions', 0))}",
+                )
+                self._set_stage(
+                    discovery_debug,
+                    "normalization",
+                    status="success",
+                    confidence=min(1.0, normalized_count / max(1, len(selected_links))),
+                    reason=f"normalized={normalized_count}",
+                )
+                self._set_stage(
+                    discovery_debug,
+                    "deduplication",
+                    status="success",
+                    confidence=1.0,
+                    reason=f"deduplicated={int(discovery_debug.get('deduplicated_count', 0))}",
+                )
             if not out and not discovery_debug.get("failed_step"):
                 discovery_debug["failed_step"] = "FIELD_EXTRACTION"
                 discovery_debug["error_message"] = "no valid structured grant items extracted"
+                self._set_stage(
+                    discovery_debug,
+                    "field_extraction",
+                    status="failed",
+                    confidence=0.0,
+                    reason="no valid structured grant items extracted",
+                )
         if self._repository is not None:
             self._store_memory(user_id=user_id, source_id=source.id, links=links, results=out, debug=discovery_debug)
         return out
@@ -510,6 +598,24 @@ class GenericGrantDiscovery:
             debug["listing_detected"] = listing_detected
             debug["page_type"] = page_type
             debug["page_signals"] = page_signals
+            score_map = {
+                "LISTING": float(page_signals.get("listing_score", 0)),
+                "DETAIL": float(page_signals.get("detail_score", 0)),
+                "SEARCH": float(page_signals.get("search_score", 0)),
+                "LANDING": max(
+                    float(page_signals.get("listing_score", 0)),
+                    float(page_signals.get("detail_score", 0)),
+                ),
+                "UNKNOWN": 0.0,
+            }
+            confidence = min(1.0, score_map.get(page_type, 0.0) / 100.0)
+            self._set_stage(
+                debug,
+                "page_type_detection",
+                status="success",
+                confidence=confidence,
+                reason=f"page_type={page_type}",
+            )
 
         pages = [(base_url, html)]
         pagination_chain: list[str] = []
@@ -574,6 +680,52 @@ class GenericGrantDiscovery:
         except (URLError, TimeoutError, OSError, ValueError):
             return ""
 
+    def _init_stage_trace(self) -> dict:
+        return {
+            "source_detection": {"status": "pending", "confidence": 0.0, "reason": ""},
+            "fetch_content": {"status": "pending", "confidence": 0.0, "reason": ""},
+            "page_type_detection": {"status": "pending", "confidence": 0.0, "reason": ""},
+            "listing_extraction": {"status": "pending", "confidence": 0.0, "reason": ""},
+            "detail_fetch": {"status": "pending", "confidence": 0.0, "reason": ""},
+            "field_extraction": {"status": "pending", "confidence": 0.0, "reason": ""},
+            "normalization": {"status": "pending", "confidence": 0.0, "reason": ""},
+            "deduplication": {"status": "pending", "confidence": 0.0, "reason": ""},
+        }
+
+    def _set_stage(self, debug: dict, stage: str, status: str, confidence: float, reason: str) -> None:
+        trace = debug.setdefault("stage_trace", self._init_stage_trace())
+        if stage not in trace:
+            trace[stage] = {"status": "pending", "confidence": 0.0, "reason": ""}
+        trace[stage]["status"] = status
+        trace[stage]["confidence"] = round(max(0.0, min(1.0, confidence)), 3)
+        trace[stage]["reason"] = reason
+
+    def _source_confidence(self, source_type: str, signals: dict) -> float:
+        if source_type == "API":
+            return 1.0 if signals.get("api_config_present") else 0.9
+        if source_type == "STATIC":
+            return 0.85 if signals.get("probe_size", 0) > 1000 else 0.65
+        if source_type == "JS":
+            return 0.75 if signals.get("script_signals", 0) >= 2 else 0.6
+        return 0.35
+
+    def _fetch_confidence(self, content_length: int) -> float:
+        if content_length >= 20000:
+            return 1.0
+        if content_length >= 5000:
+            return 0.85
+        if content_length >= 1000:
+            return 0.6
+        if content_length > 0:
+            return 0.4
+        return 0.0
+
+    def _listing_confidence(self, links_found: int, selected_count: int) -> float:
+        if links_found <= 0:
+            return 0.0
+        select_ratio = selected_count / max(1, links_found)
+        return min(1.0, 0.5 + (0.3 * min(1.0, links_found / 20)) + (0.2 * min(1.0, select_ratio)))
+
     def _fetch_artifact(self, url: str, source_type: str, source_id: str) -> dict:
         artifact = {
             "ok": False,
@@ -587,34 +739,43 @@ class GenericGrantDiscovery:
         }
         try:
             if source_type == "API":
-                data = self._cluster.fetch_json(url)
-                if data is None:
-                    artifact["error"] = "api fetch failed"
+                api_meta = self._cluster.fetch_json_with_meta(url)
+                if not api_meta.get("ok"):
+                    artifact["error"] = str(api_meta.get("error", "api fetch failed"))
+                    artifact["content_type"] = str(api_meta.get("content_type", ""))
+                    artifact["content_length"] = int(api_meta.get("content_length", 0))
                     return artifact
+                data = api_meta.get("data")
                 raw = json.dumps(data)
                 artifact.update(
                     {
                         "ok": True,
-                        "fetch_method": "api",
-                        "content_type": "application/json",
-                        "content_length": len(raw),
+                        "fetch_method": str(api_meta.get("fetch_method", "api")),
+                        "content_type": str(api_meta.get("content_type", "application/json")),
+                        "content_length": int(api_meta.get("content_length", len(raw))),
                         "raw_json": data,
                     }
                 )
                 return artifact
-            html = self._cluster.fetch_html(ScrapeJob(url=url, source_type=source_type, source_id=source_id))
+            html_meta = self._cluster.fetch_html_with_meta(ScrapeJob(url=url, source_type=source_type, source_id=source_id))
+            html = str(html_meta.get("html", ""))
+            artifact["fetch_method"] = str(html_meta.get("fetch_method", artifact["fetch_method"]))
+            artifact["content_type"] = str(html_meta.get("content_type", ""))
+            artifact["content_length"] = int(html_meta.get("content_length", 0))
             if not html and self._playwright_fallback_enabled and self._api_discovery.is_enabled():
                 html = self._api_discovery.fetch_page_html(url) or ""
                 if html:
                     artifact["fetch_method"] = "playwright-dom"
+                    artifact["content_type"] = "text/html"
+                    artifact["content_length"] = len(html)
             if not html:
-                artifact["error"] = "html fetch failed"
+                artifact["error"] = str(html_meta.get("error", "html fetch failed"))
                 return artifact
             artifact.update(
                 {
                     "ok": True,
-                    "content_type": "text/html",
-                    "content_length": len(html),
+                    "content_type": artifact["content_type"] or "text/html",
+                    "content_length": artifact["content_length"] or len(html),
                     "raw_html": html,
                 }
             )

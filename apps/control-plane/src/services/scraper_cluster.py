@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 from services.api_discovery_service import ApiDiscoveryService
 
-SourceType = Literal["HTML", "JS", "API"]
+SourceType = Literal["HTML", "STATIC", "JS", "API", "UNKNOWN"]
 
 
 @dataclass
@@ -29,11 +29,36 @@ class ScraperCluster:
         self._per_source = int(os.getenv("SCRAPER_QUEUE_PER_SOURCE", "2"))
 
     def fetch_html(self, job: ScrapeJob) -> str:
+        meta = self.fetch_html_with_meta(job)
+        return str(meta.get("html", "")) if meta.get("ok") else ""
+
+    def fetch_html_with_meta(self, job: ScrapeJob) -> dict:
+        out = {
+            "ok": False,
+            "html": "",
+            "error": "",
+            "fetch_method": "static",
+            "content_type": "",
+            "content_length": 0,
+        }
         if job.source_type == "JS" and self._api_discovery.is_enabled():
-            html = self._api_discovery.fetch_page_html(job.url)
+            out["fetch_method"] = "playwright"
+            html = self._api_discovery.fetch_page_html(job.url) or ""
             if html:
-                return html
-        return self._fetch_static(job.url)
+                out.update(
+                    {
+                        "ok": True,
+                        "html": html,
+                        "content_type": "text/html",
+                        "content_length": len(html),
+                    }
+                )
+                return out
+            out["error"] = "playwright returned empty html"
+            return out
+        static = self._fetch_static_with_meta(job.url)
+        out.update(static)
+        return out
 
     def fetch_html_jobs(self, jobs: list[ScrapeJob]) -> Dict[str, str]:
         if not self._queue_enabled or not jobs:
@@ -77,6 +102,18 @@ class ScraperCluster:
         return results
 
     def fetch_json(self, url: str) -> object | None:
+        meta = self.fetch_json_with_meta(url)
+        return meta.get("data") if meta.get("ok") else None
+
+    def fetch_json_with_meta(self, url: str) -> dict:
+        out = {
+            "ok": False,
+            "data": None,
+            "error": "",
+            "fetch_method": "api",
+            "content_type": "",
+            "content_length": 0,
+        }
         req = Request(
             url,
             headers={
@@ -87,14 +124,32 @@ class ScraperCluster:
         )
         try:
             with urlopen(req, timeout=20) as resp:
+                out["content_type"] = (resp.headers.get("Content-Type", "") or "").lower()
                 raw = resp.read().decode("utf-8", errors="ignore")
+                out["content_length"] = len(raw)
                 import json
 
-                return json.loads(raw)
-        except (URLError, TimeoutError, OSError, ValueError):
-            return None
+                parsed = json.loads(raw)
+                out["ok"] = True
+                out["data"] = parsed
+                return out
+        except (URLError, TimeoutError, OSError, ValueError) as exc:
+            out["error"] = str(exc)
+            return out
 
     def _fetch_static(self, url: str) -> str:
+        meta = self._fetch_static_with_meta(url)
+        return str(meta.get("html", "")) if meta.get("ok") else ""
+
+    def _fetch_static_with_meta(self, url: str) -> dict:
+        out = {
+            "ok": False,
+            "html": "",
+            "error": "",
+            "fetch_method": "static",
+            "content_type": "",
+            "content_length": 0,
+        }
         req = Request(
             url,
             headers={
@@ -106,8 +161,15 @@ class ScraperCluster:
         try:
             with urlopen(req, timeout=10) as resp:
                 content_type = (resp.headers.get("Content-Type", "") or "").lower()
+                out["content_type"] = content_type
                 if "html" not in content_type and "xml" not in content_type:
-                    return ""
-                return resp.read().decode("utf-8", errors="ignore")
-        except (URLError, TimeoutError, OSError, ValueError):
-            return ""
+                    out["error"] = f"unexpected content-type: {content_type or 'unknown'}"
+                    return out
+                html = resp.read().decode("utf-8", errors="ignore")
+                out["ok"] = True
+                out["html"] = html
+                out["content_length"] = len(html)
+                return out
+        except (URLError, TimeoutError, OSError, ValueError) as exc:
+            out["error"] = str(exc)
+            return out
